@@ -1,0 +1,14 @@
+{
+  "Test.Gui": "My Gui",
+  "block.tutorial.terminal_block": "Terminal",
+  "guiText.tooltip.crafting.true": "Crafting Mode §aenabled \\n§7Crafting grid will be shown in the interface.",
+  "guiText.tooltip.crafting.false": "Crafting Mode §edisabled \\n§7Crafting grid is hidden.",
+  "chatText.misc.target": "Target: §b%s",
+  "chatText.misc.targetSet": "§eTarget set: §f%s",
+  "chatText.misc.targetCleared": "Target cleared",
+  "chatText.misc.targetRemoved": "Target removed (%d/%d): ",
+  "chatText.misc.targetAdded": "Target added (%d/%d): ",
+  "chatText.misc.tooManyTargets": "Too many targets! (max: %d)",
+  "chatText.misc.tooFarAway": "Too far away! (Max: %d blocks)",
+  "item.remoteblockaccess.remote_access_item": "Remote Block Accessor"
+}

@@ -1,14 +1,11 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "in.roflmuff.remoteblockaccess.mixin",
+  "package": "in.roflmuff.remoteblockaccess.mixin.client",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "PlayerEntityMixin",
-    "ServerPlayerEntityMixin",
-    "WorldMixin"
-  ],
-  "client": [
+    "ClientChunkManagerMixin",
+    "WorldRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

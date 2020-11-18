@@ -1,0 +1,12 @@
+{
+  "success": {
+    "sounds": [
+      "remoteblockaccess:success"
+    ]
+  },
+  "error": {
+    "sounds": [
+      "remoteblockaccess:error"
+    ]
+  }
+}

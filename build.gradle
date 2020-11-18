@@ -10,6 +10,21 @@ archivesBaseName = project.archives_base_name
 version = project.mod_version
 group = project.maven_group
 
+repositories {
+    maven {
+        url = "https://www.cursemaven.com"
+    }
+
+    maven {
+        name = "BuildCraft"
+        url = "https://mod-buildcraft.com/maven"
+    }
+}
+
+minecraft {
+    accessWidener "src/main/resources/remoteblockaccess.accesswidener"
+}
+
 dependencies {
     //to change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -21,6 +36,18 @@ dependencies {
 
     // PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
     // You may need to force-disable transitiveness on them.
+    modRuntime("me.shedaniel:RoughlyEnoughItems:${project.rei_version}") {
+        exclude(group: "net.fabricmc")
+        exclude(group: "net.fabricmc.fabric-api")
+    }
+
+    modRuntime("TechReborn:TechReborn-1.16:${project.techreborn_version}") {
+		exclude(group: "net.fabricmc")
+		exclude(group: "net.fabricmc.fabric-api")
+	}
+
+    modRuntime("curse.maven:linked_storage:3087341")
+    //modRuntime("curse.maven:expanded_storage:3108896")
 }
 
 processResources {
