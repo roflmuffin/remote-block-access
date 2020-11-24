@@ -1,5 +1,6 @@
 package in.roflmuff.remoteblockaccess.network.messages;
 
+import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.network.ClientSidePacketRegistry;
 import net.fabricmc.fabric.api.network.PacketContext;
@@ -12,11 +13,16 @@ public abstract class AbstractNetworkMessage {
 
     private Identifier _identifier;
 
-    public AbstractNetworkMessage(Identifier identifier) {
-        _identifier = identifier;
+    public Identifier getIdentifier() {
+        return _identifier;
+    }
+
+    public AbstractNetworkMessage(String name) {
+        _identifier = new Identifier(RemoteBlockAccess.MOD_ID, name);
     }
 
     abstract void encode(PacketByteBuf buf);
+    abstract void decode(PacketByteBuf buf);
 
     public void sendToServer() {
         PacketByteBuf passedData = new PacketByteBuf(Unpooled.buffer());
@@ -29,4 +35,13 @@ public abstract class AbstractNetworkMessage {
         encode(passedData);
         ServerSidePacketRegistry.INSTANCE.sendToPlayer(player, _identifier, passedData);
     }
+
+    public void accept(PacketContext context, PacketByteBuf packetByteBuf) {
+        this.decode(packetByteBuf);
+        context.getTaskQueue().execute(() -> {
+            this.execute(context);
+        });
+    }
+
+    abstract void execute(PacketContext context);
 }

@@ -21,7 +21,7 @@ public class MiscUtil {
     }
 
     public static String locToString(RegistryKey<World> dim, BlockPos pos) {
-        return String.format("DIM:%s [%d,%d,%d]", dim.getValue(), pos.getX(), pos.getY(), pos.getZ());
+        return String.format("DIM:%s", dim.getValue(), pos.getX(), pos.getY(), pos.getZ());
     }
 
     public static CompoundTag serializeGlobalPos(GlobalPos globalPos) {

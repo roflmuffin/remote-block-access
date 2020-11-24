@@ -19,6 +19,7 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3d;
 
@@ -30,9 +31,9 @@ import java.util.stream.Collectors;
 @Environment(EnvType.CLIENT)
 public class TargetRenderer {
 
-    private static final float BOX_SIZE = 0.4f;
+    private static float BOX_SIZE = 0.4f;
     private static ItemStack lastStack = ItemStack.EMPTY;
-    private static List<BlockPos> blockPositions = null;
+    private static List<RemoteBlockConfiguration> blockPositions = null;
 
     public static void clientTick(MinecraftClient minecraftClient) {
         if (MinecraftClient.getInstance().player != null) {
@@ -46,13 +47,9 @@ public class TargetRenderer {
     }
 
     private static void updatePositions(ItemStack itemStack) {
-        if (itemStack.getItem() == ModItems.REMOTE_ACCESS_ITEM) {
+        if (itemStack.getItem() instanceof RemoteAccessItem) {
             blockPositions = new ArrayList<>();
-            List<RemoteBlockConfiguration> targets = RemoteAccessItem.getTargets(itemStack, false);
-            if (targets.size() > 0) {
-                List<BlockPos> blockPosList = targets.stream().map(x -> x.globalPos.getPos()).collect(Collectors.toList());
-                blockPositions.addAll(blockPosList);
-            }
+            blockPositions = RemoteAccessItem.getTargets(itemStack, false);
         } else {
             blockPositions = null;
         }
@@ -69,9 +66,13 @@ public class TargetRenderer {
 
             float start = (1 - BOX_SIZE) / 2.0f;
 
-            for(BlockPos pos : blockPositions) {
+            for(RemoteBlockConfiguration target : blockPositions) {
+                BlockPos pos = target.globalPos.getPos();
+
                 matrixStack.push();
                 matrixStack.translate(pos.getX() + start, pos.getY() + start, pos.getZ() + start);
+                // Code to place the square onto the actual hit spot.
+                // matrixStack.translate(target.hitResult.getPos().getX(), target.hitResult.getPos().getY(), target.hitResult.getPos().getZ());
                 Matrix4f posMat = matrixStack.peek().getModel();
                 int color = 0x00ff00;
                 int r = (color & 0xFF0000) >> 16;
@@ -87,41 +88,37 @@ public class TargetRenderer {
 
 //                bufferBuilder.begin(GL11.GL_QUADS, VertexFormats.POSITION_COLOR);
 
+                alpha = getFaceAlpha(target, Direction.NORTH);
                 bufferBuilder.vertex(posMat, 0, 0, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, BOX_SIZE, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, 0).color(r, g, b, alpha).next();
 
+                alpha = getFaceAlpha(target, Direction.SOUTH);
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, 0, BOX_SIZE).color(r, g, b, alpha).next();
 
-                bufferBuilder.vertex(posMat,0, 0, 0).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, 0, BOX_SIZE, 0).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, 0).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, BOX_SIZE, 0, 0).color(r, g, b, alpha).next();
-
-                bufferBuilder.vertex(posMat, BOX_SIZE, 0, BOX_SIZE).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, 0, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
-                bufferBuilder.vertex(posMat, 0, 0, BOX_SIZE).color(r, g, b, alpha).next();
-
+                alpha = getFaceAlpha(target, Direction.WEST);
                 bufferBuilder.vertex(posMat, 0, 0, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, 0, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, BOX_SIZE, 0).color(r, g, b, alpha).next();
 
+                alpha = getFaceAlpha(target, Direction.EAST);
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, 0).color(r, g, b, alpha).next();
 
+                alpha = getFaceAlpha(target, Direction.DOWN);
                 bufferBuilder.vertex(posMat, 0, 0, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, 0).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, 0, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, 0, 0, BOX_SIZE).color(r, g, b, alpha).next();
 
+                alpha = getFaceAlpha(target, Direction.UP);
                 bufferBuilder.vertex(posMat, 0, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, BOX_SIZE).color(r, g, b, alpha).next();
                 bufferBuilder.vertex(posMat, BOX_SIZE, BOX_SIZE, 0).color(r, g, b, alpha).next();
@@ -175,5 +172,9 @@ public class TargetRenderer {
         }
 
         return ActionResult.PASS;
+    }
+
+    private static int getFaceAlpha(RemoteBlockConfiguration target, Direction face) {
+        return target.hitResult.getSide() == face ? 200 : 100;
     }
 }

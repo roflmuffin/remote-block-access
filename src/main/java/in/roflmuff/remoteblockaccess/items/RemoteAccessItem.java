@@ -1,53 +1,93 @@
 package in.roflmuff.remoteblockaccess.items;
 
-import com.google.common.collect.Sets;
 import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import in.roflmuff.remoteblockaccess.config.RemoteBlockAccessConfig;
-import in.roflmuff.remoteblockaccess.core.ModNetwork;
-import in.roflmuff.remoteblockaccess.core.ModSounds;
+import in.roflmuff.remoteblockaccess.core.*;
+import in.roflmuff.remoteblockaccess.network.messages.BlockEntityDataMessage;
+import in.roflmuff.remoteblockaccess.network.messages.OpenGuiMessage;
+import in.roflmuff.remoteblockaccess.screen.RemoteAccessItemScreenHandler;
 import in.roflmuff.remoteblockaccess.util.MiscUtil;
 import io.netty.buffer.Unpooled;
-import net.fabricmc.fabric.api.network.ClientSidePacketRegistry;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
+import net.fabricmc.fabric.api.screenhandler.v1.ScreenHandlerRegistry;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.item.TooltipContext;
-import net.minecraft.command.argument.BlockStateArgument;
-import net.minecraft.command.argument.ItemSlotArgumentType;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
+import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
+import net.minecraft.util.*;
+import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.dynamic.GlobalPos;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
-import org.lwjgl.system.CallbackI;
+import net.minecraft.world.chunk.WorldChunk;
+import org.jetbrains.annotations.Nullable;
 
-import java.rmi.Remote;
+import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.function.Consumer;
 
 public class RemoteAccessItem extends BaseItem {
 
     private static final String NBT_TARGET = "Target";
     private static final String NBT_MULTI_TARGET = "MultiTarget";
+    private final RemoteAccessTier accessTier;
+
+    public RemoteAccessItem(RemoteAccessTier accessTier) {
+        super(new Item.Settings().group(ItemGroup.MISC).maxDamage(accessTier.maxCharge).rarity(Rarity.RARE));
+        this.accessTier = accessTier;
+    }
+
+    @Override
+    public void onCraft(ItemStack stack, World world, PlayerEntity player) {
+        super.onCraft(stack, world, player);
+    }
+
+    @Override
+    public boolean hasGlint(ItemStack stack) {
+        if (getTarget(stack) != null) {
+            return true;
+        }
+
+        return super.hasGlint(stack);
+    }
+
+    @Override
+    public boolean isEnchantable(ItemStack stack) {
+        return false;
+    }
 
     @Override
     public ActionResult useOnBlock(ItemUsageContext ctx) {
+        if (!(ctx.getPlayer().getMainHandStack().getItem() instanceof RemoteAccessItem)) return super.useOnBlock(ctx);
+
         if (ctx.getPlayer() != null && ctx.getPlayer().isSneaking()) {
             if (isValidTarget(ctx)) {
                 BlockHitResult blockHitResult = new BlockHitResult(ctx.getHitPos(), ctx.getSide(), ctx.getBlockPos(), false);
@@ -63,44 +103,202 @@ public class RemoteAccessItem extends BaseItem {
 
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
+        // Ignore using the item if its in our off-hand.
+        if (hand == Hand.OFF_HAND) return super.use(world, user, hand);
 
-        List<RemoteBlockConfiguration> targets = getTargets(user.getStackInHand(hand), false);
+        ItemStack stack = user.getMainHandStack();
+
+        if (user.isSneaking()) {
+            clearTargets(stack, user);
+            return super.use(world, user, hand);
+        }
+
+        List<RemoteBlockConfiguration> targets = getTargets(stack, false);
+
+        // Don't proceed if our item does not have enough charge.
+        if (!world.isClient && targets.size() > 0 && !hasChargeAvailable(stack)) {
+            user.sendMessage(new TranslatableText("chatText.misc.notCharged").formatted(Formatting.RED), true);
+            world.playSound(null, user.getBlockPos(), ModSounds.ERROR, SoundCategory.BLOCKS, 1.0f, 0.5f);
+            return super.use(world, user, hand);
+        }
+
+        if (targets.size() > 1 && !world.isClient) {
+            RemoteAccessItemScreenHandler remoteAccessItemScreenHandler = new RemoteAccessItemScreenHandler(0, targets);
+            //remoteAccessItemScreenHandler.
+            //ModScreens.REMOTE_ACCESS_ITEM_SCREEN.create()
+            user.openHandledScreen(new ExtendedScreenHandlerFactory() {
+                @Override
+                public void writeScreenOpeningData(ServerPlayerEntity serverPlayerEntity, PacketByteBuf packetByteBuf) {
+
+                }
+
+                @Override
+                public Text getDisplayName() {
+                    return new TranslatableText("item.remoteblockaccess.remote_block_accessor");
+                }
+
+                @Override
+                public @Nullable ScreenHandler createMenu(int syncId, PlayerInventory inv, PlayerEntity player) {
+                    PacketByteBuf byteBuf = new PacketByteBuf(Unpooled.buffer());
+                    return new RemoteAccessItemScreenHandler(syncId, inv, byteBuf);
+                }
+            });
+            return super.use(world, user, hand);
+        }
 
         for (RemoteBlockConfiguration target : targets) {
             if (target != null) {
-                BlockPos savedPos = target.globalPos.getPos();
+                useForTarget(target, world, user);
+                stack.setDamage(stack.getDamage() + this.getCostToUse());
+/*                BlockPos savedPos = target.globalPos.getPos();
+                Identifier targetDimension = target.globalPos.getDimension().getValue();
 
-
-                BlockState state = world.getBlockState(savedPos);
-                BlockEntity blockEntity = world.getBlockEntity(savedPos);
-
-                if (world.isClient) {
-                //if (blockEntity == null && world.isClient) {
-                    // The client does not know about this chunk, issue a request to receive it.
-                    PacketByteBuf byteBuf = new PacketByteBuf(Unpooled.buffer());
-                    byteBuf.writeBlockPos(savedPos);
-                    byteBuf.writeBlockHitResult(target.hitResult);
-                    ClientSidePacketRegistry.INSTANCE.sendToServer(ModNetwork.LOAD_CHUNK_REQUEST, byteBuf);
-                }
+                // Handle other vs. same dimensional usage.
+                if (targetDimension != world.getRegistryKey().getValue()) {
+                    useOtherDimension(user, target);
+                } else {
+                    if (isWithinRange(user, target)) {
+                        useSameDimension(world, user, target);
+                    } else if (!world.isClient) {
+                        user.sendMessage(new TranslatableText("chatText.misc.tooFarAway", getMaxRange()).formatted(Formatting.RED), true);
+                        world.playSound(null, user.getBlockPos(), ModSounds.ERROR, SoundCategory.BLOCKS, 1.0f, 0.7f);
+                    }
+                }*/
             }
+
         }
 
         return super.use(world, user, hand);
     }
 
-    public static void mimicUseAction(RemoteBlockConfiguration target, PlayerEntity user) {
+    public void useForTarget(RemoteBlockConfiguration target, World world, PlayerEntity user) {
+        if (target != null) {
+            BlockPos savedPos = target.globalPos.getPos();
+            Identifier targetDimension = target.globalPos.getDimension().getValue();
+
+            // Handle other vs. same dimensional usage.
+            if (targetDimension != world.getRegistryKey().getValue()) {
+                useOtherDimension(user, target);
+            } else {
+                if (isWithinRange(user, target)) {
+                    useSameDimension(world, user, target);
+                } else if (!world.isClient) {
+                    user.sendMessage(new TranslatableText("chatText.misc.tooFarAway", getMaxRange()).formatted(Formatting.RED), true);
+                    world.playSound(null, user.getBlockPos(), ModSounds.ERROR, SoundCategory.BLOCKS, 1.0f, 0.7f);
+                }
+            }
+        }
+    }
+
+    private void useOtherDimension(PlayerEntity user, RemoteBlockConfiguration target) {
+        BlockPos savedPos = target.globalPos.getPos();
+        System.out.println(String.format("Target %s is in another dimension %s", target.globalPos.getPos(), target.globalPos.getDimension().getValue()));
+
+        if (user.world.isClient) {
+            // This subscribes us to accept a BlockEntity packet at this co-ordinate.
+            // This is used to mock the state of a block entity in another dimension in the client.
+            ClientChunkQueue.Instance.push(target.globalPos.getDimension(), savedPos);
+        } else {
+            ServerWorld serverWorld = target.getServerWorld();
+            WorldChunk chunk = (WorldChunk) serverWorld.getChunk(savedPos);
+            ServerPlayerEntity player =  ((ServerPlayerEntity)user);
+
+            // TODO: Find a better way to force load the requested chunk...
+            serverWorld.setChunkForced(chunk.getPos().x, chunk.getPos().z, true);
+
+            // Here we serialize and send the block entity data for this block position to the client.
+            sendBlockEntityToClient(target, user);
+
+            // Here we prompt the user to open the gui.
+            // This should work in most cases now, as we have `faked` the block entity on the client now.
+            OpenGuiMessage message = new OpenGuiMessage(savedPos, target.hitResult);
+            message.sendToClient(player);
+
+            // Forces subsequent interactions in other mods to use the correct dimension.
+            // Since we are on the serverside this should work (but it can't be good lol)
+            World oldWorld = user.world;
+            user.world = serverWorld;
+            RemoteAccessItem.mimicUseAction(serverWorld, target, user);
+            user.world = oldWorld;
+        }
+    }
+
+    private void sendBlockEntityToClient(RemoteBlockConfiguration target, PlayerEntity user) {
+        ServerWorld serverWorld = target.getServerWorld();
+
+        BlockPos savedPos = target.globalPos.getPos();
+
+        BlockEntity be = serverWorld.getBlockEntity(savedPos);
+        BlockState bs = serverWorld.getBlockState(savedPos);
+        Identifier blockId = Registry.BLOCK.getId(bs.getBlock());
+
+        CompoundTag tag = new CompoundTag();
+        if (be != null) {
+            tag = be.toInitialChunkDataTag();
+            be.toTag(tag);
+        }
+
+        BlockEntityDataMessage blockEntityDataMessage = new BlockEntityDataMessage(tag, blockId);
+        blockEntityDataMessage.sendToClient(user);
+    }
+
+    private void useSameDimension(World world, PlayerEntity user, RemoteBlockConfiguration target) {
+        BlockPos savedPos = target.globalPos.getPos();
+
+        if (world.isClient) {
+            LocalChunkManager chunkManager = GlobalClientChunkManager.Instance.getLocalManager(world.getRegistryKey().getValue());
+            if (chunkManager != null) {
+                chunkManager.registerChunkForListening(savedPos);
+            }
+        } else {
+            // If were server, send the chunk data and then use the block server side.
+            // Also send packet for the client to use the block too.
+            ServerWorld serverWorld = RemoteBlockAccess.getCurrentServer().getWorld(target.globalPos.getDimension());
+            WorldChunk chunk = (WorldChunk) serverWorld.getChunk(savedPos);
+            ServerPlayerEntity player =  ((ServerPlayerEntity)user);
+
+            ChunkDataS2CPacket packet = new ChunkDataS2CPacket((WorldChunk) chunk, 65535);
+            player.networkHandler.sendPacket(packet);
+
+            RemoteAccessItem.mimicUseAction(world, target, player);
+
+            OpenGuiMessage message = new OpenGuiMessage(savedPos, target.hitResult);
+            message.sendToClient(player);
+        }
+    }
+
+    public static void mimicUseAction(World world, RemoteBlockConfiguration target, PlayerEntity user) {
+        if (world.isClient) {
+            world = new ProxyClientWorld((ClientWorld) world);
+        }
         System.out.println("Attempting to use block");
-        World world = user.world;
         BlockPos savedPos = target.globalPos.getPos();
         BlockState state = world.getBlockState(savedPos);
         BlockEntity blockEntity = world.getBlockEntity(savedPos);
-        state.onUse(world, user, Hand.MAIN_HAND, target.hitResult);
+
+        ItemStack offHandItem = user.getStackInHand(Hand.OFF_HAND);
+        if (offHandItem != ItemStack.EMPTY) {
+            ActionResult actionResult = offHandItem.useOnBlock(new ItemUsageContext(user, Hand.OFF_HAND, target.hitResult));
+            if (actionResult.isAccepted()) {
+                return;
+            }
+        }
+
+
+        try {
+            if (blockEntity != null) {
+                blockEntity.getCachedState().onUse(world, user, Hand.OFF_HAND, target.hitResult);
+            } else {
+                state.onUse(world, user, Hand.OFF_HAND, target.hitResult);
+            }
+        } catch (Exception e) {
+            System.out.println("An error occurred trying to open block remotely. " + e.getStackTrace());
+        }
+
+        //state.onUse(world, user, Hand.OFF_HAND, target.hitResult);
     }
 
     protected boolean isValidTarget(ItemUsageContext ctx) {
-        // TODO: Ensure block selected has a gui...
-        // Find some code that checks block entity below.
-        // return ctx.getWorld().getBlockEntity(ctx.getBlockPos()) instanceof Inventory;
         return true;
     }
 
@@ -109,18 +307,18 @@ public class RemoteAccessItem extends BaseItem {
             boolean removing = false;
             String invName = world.getBlockState(pos).getBlock().getTranslationKey();
             GlobalPos globalPos = GlobalPos.create(world.getRegistryKey(), pos);
-            RemoteBlockConfiguration target = new RemoteBlockConfiguration(globalPos, face, invName, blockHitResult);
+            RemoteBlockConfiguration target = new RemoteBlockConfiguration(globalPos, invName, blockHitResult);
             List<RemoteBlockConfiguration> targets = getTargets(itemStack, true);
 
             if (targets.contains(target)) {
                 targets.remove(target);
                 removing = true;
                 player.sendMessage(new TranslatableText("chatText.misc.targetRemoved", targets.size(), getMaxTargets()).append(
-                        target.getTextComponent().formatted(Formatting.YELLOW)), true);
+                        target.getTextComponent(false).formatted(Formatting.YELLOW)), true);
             } else if (targets.size() < getMaxTargets()) {
                 targets.add(target);
                 player.sendMessage(new TranslatableText("chatText.misc.targetAdded", targets.size(), getMaxTargets()).append(
-                        target.getTextComponent().formatted(Formatting.YELLOW)), true);
+                        target.getTextComponent(false).formatted(Formatting.YELLOW)), true);
             } else {
                 player.sendMessage(new TranslatableText("chatText.misc.tooManyTargets", getMaxTargets()).formatted(Formatting.RED), true);
                 world.playSound(null, pos, ModSounds.ERROR, SoundCategory.BLOCKS, 1.0f, 1.3f);
@@ -133,7 +331,10 @@ public class RemoteAccessItem extends BaseItem {
     }
 
     public static RemoteBlockConfiguration getTarget(ItemStack stack) {
-        return getTargets(stack, false).get(0);
+        List<RemoteBlockConfiguration> targets = getTargets(stack, false);
+        if (targets.size() > 0) return targets.get(0);
+
+        return null;
     }
 
     public static List<RemoteBlockConfiguration> getTargets(ItemStack stack, boolean checkBlockName) {
@@ -166,6 +367,15 @@ public class RemoteAccessItem extends BaseItem {
         stack.getTag().put(RemoteBlockAccess.MOD_ID, compound);
     }
 
+    private static void clearTargets(ItemStack stack, PlayerEntity player) {
+        setTargets(stack, new ArrayList<>());
+
+        if (!player.world.isClient) {
+            player.sendMessage(new TranslatableText("chatText.misc.targetCleared").formatted(Formatting.YELLOW), true);
+            player.world.playSound(null, player.getBlockPos(), ModSounds.SUCCESS, SoundCategory.BLOCKS, 1.0f, 1.0f);
+        }
+    }
+
     private static RemoteBlockConfiguration updateTargetBlockName(ItemStack stack, RemoteBlockConfiguration target) {
         ServerWorld w = MiscUtil.getWorldForGlobalPos(target.globalPos);
         BlockPos pos = target.globalPos.getPos();
@@ -173,7 +383,7 @@ public class RemoteAccessItem extends BaseItem {
             String invName = w.getBlockState(pos).getBlock().getTranslationKey();
             if (!target.translationKey.equals(invName)) {
                 setTarget(stack, w, target.hitResult);
-                return new RemoteBlockConfiguration(target.globalPos, target.face, invName, target.hitResult);
+                return new RemoteBlockConfiguration(target.globalPos, invName, target.hitResult);
             }
         }
         return null;
@@ -188,28 +398,66 @@ public class RemoteAccessItem extends BaseItem {
             compound.remove(NBT_TARGET);
         } else {
             GlobalPos gPos = GlobalPos.create(world.getRegistryKey(), hitResult.getBlockPos());
-            RemoteBlockConfiguration mt = new RemoteBlockConfiguration(gPos, hitResult.getSide(), world.getBlockState(hitResult.getBlockPos()).getBlock().getTranslationKey(), hitResult);
+            RemoteBlockConfiguration mt = new RemoteBlockConfiguration(gPos, world.getBlockState(hitResult.getBlockPos()).getBlock().getTranslationKey(), hitResult);
             compound.put(NBT_TARGET, mt.toNBT());
         }
         stack.getTag().put(RemoteBlockAccess.MOD_ID, compound);
     }
-
     
     private int getMaxTargets() {
         return RemoteBlockAccessConfig.multiSelectMaximum;
     }
 
-    private double getMaxRange() { return 256; }
+    private double getMaxRange() { return accessTier.maxRange; }
+
+    private int getCostToUse() { return accessTier.costToUse; }
+
+    private int getMaxCharge() { return accessTier.maxCharge; }
+
+    private int getCharge(ItemStack stack) { return stack.getMaxDamage() - stack.getDamage();}
+
+    private boolean hasChargeAvailable(ItemStack stack) {
+        return getCharge(stack) >= this.getCostToUse();
+    }
+
+    private boolean isWithinRange(PlayerEntity user, RemoteBlockConfiguration target) {
+        return user.getBlockPos().getManhattanDistance(target.globalPos.getPos()) < getMaxRange();
+    }
 
     @Override
     public void appendTooltip(ItemStack stack, World world, List<Text> tooltip, TooltipContext context) {
         List<RemoteBlockConfiguration> targets = getTargets(stack, false);
 
+        tooltip.add(new TranslatableText("guiText.tooltip.blockRange", getMaxRange()));
+        tooltip.add(new TranslatableText("guiText.tooltip.storesXCharge", this.getMaxCharge()));
+        tooltip.add(new TranslatableText("guiText.tooltip.usesXCharge", this.getCostToUse()));
+
         for (RemoteBlockConfiguration target : targets) {
             if (target != null) {
-                MutableText msg = MiscUtil.xlate("chatText.misc.target").append(target.getTextComponent()).formatted(Formatting.YELLOW);
+                boolean sameDimension = world.getRegistryKey().getValue() == target.globalPos.getDimension().getValue();
+                MutableText msg = new TranslatableText("chatText.misc.target").append(target.getTextComponent(!sameDimension)).formatted(Formatting.YELLOW);
                 tooltip.add(msg);
             }
         }
+
+        tooltip.add(new TranslatableText("guiText.tooltip.currentCharge", stack.getMaxDamage() - stack.getDamage(), stack.getMaxDamage()));
+        tooltip.add(new TranslatableText("guiText.tooltip.usesLeft", getUsesLeft(stack)));
     }
+
+    private int getUsesLeft(ItemStack stack) {
+        return (stack.getMaxDamage() - stack.getDamage()) / getCostToUse();
+    }
+
+    @Override
+    public Text getName(ItemStack stack) {
+        RemoteBlockConfiguration target = getTarget(stack);
+        if (target != null) {
+             boolean sameDimension = MinecraftClient.getInstance().world.getRegistryKey().getValue() == target.globalPos.getDimension().getValue();
+             return super.getName(stack).copy().append(target.getTextComponent(!sameDimension));
+        }
+
+        return super.getName(stack);
+    }
+
+
 }

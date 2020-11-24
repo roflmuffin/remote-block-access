@@ -19,6 +19,19 @@ repositories {
         name = "BuildCraft"
         url = "https://mod-buildcraft.com/maven"
     }
+
+    maven {
+        name "Modmaven"
+        url "https://modmaven.dev/"
+        content {
+            includeGroup 'appeng'
+        }
+    }
+
+    maven {
+        name "Siphalor's Maven"
+        url "https://maven.siphalor.de"
+    }
 }
 
 minecraft {
@@ -41,13 +54,22 @@ dependencies {
         exclude(group: "net.fabricmc.fabric-api")
     }
 
-    modRuntime("TechReborn:TechReborn-1.16:${project.techreborn_version}") {
+/*    modRuntime("TechReborn:TechReborn-1.16:${project.techreborn_version}") {
 		exclude(group: "net.fabricmc")
 		exclude(group: "net.fabricmc.fabric-api")
-	}
+	}*/
 
     modRuntime("curse.maven:linked_storage:3087341")
-    //modRuntime("curse.maven:expanded_storage:3108896")
+    modRuntime("appeng:appliedenergistics2-fabric:${project.ae2_version}")
+
+    modImplementation("de.siphalor:nbtcrafting-1.16:2.0.1+mc1.16.4") {
+        exclude(group: "net.fabricmc")
+        exclude(group: "net.fabricmc.fabric-api")
+    }
+ /*   modRuntime("curse.maven:libgui:2909428")
+    modRuntime("curse.maven:patchouli:3061633")
+    modRuntime("net.fabricmc.fabric-language-kotlin:1.4.0")
+    modRuntime("curse.maven:industrial_revolution:3114054")*/
 }
 
 processResources {

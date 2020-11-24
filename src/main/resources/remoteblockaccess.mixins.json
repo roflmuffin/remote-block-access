@@ -4,9 +4,12 @@
   "package": "in.roflmuff.remoteblockaccess.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
+    "BlockEntityMixin",
     "PlayerEntityMixin",
     "ServerPlayerEntityMixin",
-    "WorldMixin"
+    "ShapelessRecipeMixin",
+    "WorldMixin",
+    "client.WorldChunkMixin"
   ],
   "client": [
   ],

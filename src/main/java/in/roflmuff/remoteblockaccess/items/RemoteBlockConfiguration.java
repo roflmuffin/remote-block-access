@@ -1,11 +1,15 @@
 package in.roflmuff.remoteblockaccess.items;
 
+import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import in.roflmuff.remoteblockaccess.util.MiscUtil;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.dynamic.GlobalPos;
 import net.minecraft.util.hit.BlockHitResult;
@@ -19,19 +23,17 @@ import java.util.Optional;
 public class RemoteBlockConfiguration {
 
     public GlobalPos globalPos;
-    public final Direction face;
     public final String translationKey;
     public final BlockHitResult hitResult;
 
-    public RemoteBlockConfiguration(GlobalPos globalPos, Direction face, String translationKey, BlockHitResult hitResult) {
+    public RemoteBlockConfiguration(GlobalPos globalPos, String translationKey, BlockHitResult hitResult) {
         this.globalPos = globalPos;
-        this.face = face;
         this.translationKey = translationKey;
         this.hitResult = hitResult;
     }
 
     public RemoteBlockConfiguration(GlobalPos gPos, Direction face) {
-        this(gPos, face, "", null);
+        this(gPos, "", null);
     }
 
     public RemoteBlockConfiguration(GlobalPos gPos) {
@@ -41,7 +43,6 @@ public class RemoteBlockConfiguration {
     public CompoundTag toNBT() {
         CompoundTag ext = new CompoundTag();
         ext.put("Pos", MiscUtil.serializeGlobalPos(globalPos));
-        ext.putByte("Face", (byte) face.ordinal());
         ext.putString("InvName", translationKey);
         ext.put("BlockHitResult", MiscUtil.serializeBlockHitResult(hitResult));
 
@@ -50,10 +51,9 @@ public class RemoteBlockConfiguration {
 
     public static RemoteBlockConfiguration fromNBT(CompoundTag nbt) {
         GlobalPos gPos = MiscUtil.deserializeGlobalPos(nbt.getCompound("Pos"));
-        Direction face = Direction.values()[nbt.getByte("Face")];
         BlockHitResult hitResult = MiscUtil.deserializeBlockHitResult(nbt.getCompound("BlockHitResult"));
 
-        RemoteBlockConfiguration RemoteBlockConfiguration= new RemoteBlockConfiguration(gPos, face, nbt.getString("InvName"), hitResult);
+        RemoteBlockConfiguration RemoteBlockConfiguration= new RemoteBlockConfiguration(gPos, nbt.getString("InvName"), hitResult);
 
         return RemoteBlockConfiguration;
     }
@@ -78,6 +78,10 @@ public class RemoteBlockConfiguration {
         return te == null ? Optional.empty() : Optional.of((Inventory) te);
     }
 
+    public ServerWorld getServerWorld() {
+        return RemoteBlockAccess.getCurrentServer().getWorld(globalPos.getDimension());
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -96,10 +100,12 @@ public class RemoteBlockConfiguration {
         return MiscUtil.locToString(globalPos.getDimension(), globalPos.getPos());
     }
 
-    public MutableText getTextComponent() {
-        return MiscUtil.xlate(translationKey).formatted(Formatting.WHITE)
-                .append(" @ ")
-                .append(this.toString())
+    public MutableText getTextComponent(boolean includeDimension) {
+        return new TranslatableText(" ")
+                .append(String.format("[%s]", MiscUtil.xlate(translationKey).getString()))
+                .formatted(Formatting.WHITE)
+                .append(includeDimension ? " @ " : "")
+                .append(includeDimension ? this.toString() : "")
                 //.append(MiscUtil.locToString(globalPos.getDimension().getId(), globalPos.getPos()) + " " + face)
                 .formatted(Formatting.AQUA);
     }

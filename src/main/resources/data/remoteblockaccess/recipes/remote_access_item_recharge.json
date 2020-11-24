@@ -1,0 +1,15 @@
+{
+  "type": "remoteblockaccess:recharger",
+  "result": {
+    "item": "remoteblockaccess:remote_access_item_low",
+    "count": 1
+  },
+  "ingredients": [
+    {
+      "item": "remoteblockaccess:remote_access_item_low"
+    },
+    {
+      "item": "minecraft:ender_pearl"
+    }
+  ]
+}

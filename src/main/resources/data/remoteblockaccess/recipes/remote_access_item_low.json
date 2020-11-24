@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IEI",
+    "EXE",
+    "IEI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "E": {
+      "item": "minecraft:ender_pearl"
+    },
+    "X": {
+      "item": "remoteblockaccess:remote_core"
+    }
+  },
+  "result": {
+    "item": "remoteblockaccess:remote_access_item_low",
+    "count": 1,
+    "data": {
+      "Damage": 512
+    }
+  }
+}
+

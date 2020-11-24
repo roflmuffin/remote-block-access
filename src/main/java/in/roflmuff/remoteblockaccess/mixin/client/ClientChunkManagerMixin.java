@@ -1,7 +1,6 @@
 package in.roflmuff.remoteblockaccess.mixin.client;
 
-import in.roflmuff.remoteblockaccess.core.LocalChunkManager;
-import in.roflmuff.remoteblockaccess.core.ModItems;
+import in.roflmuff.remoteblockaccess.core.*;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
@@ -14,6 +13,7 @@ import net.minecraft.screen.ScreenHandler;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.biome.source.BiomeArray;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.chunk.light.LightingProvider;
@@ -32,10 +32,6 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.BooleanSupplier;
 
 
-interface Dummy {
-
-}
-
 @Mixin(ClientChunkManager.class)
 public abstract class ClientChunkManagerMixin{
 
@@ -47,11 +43,15 @@ public abstract class ClientChunkManagerMixin{
 
     @Shadow private volatile ClientChunkManager.ClientChunkMap chunks;
     @Shadow @Final private ClientWorld world;
-    private LocalChunkManager localChunkManager;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(ClientWorld world, int loadDistance, CallbackInfo ci) {
-        localChunkManager = new LocalChunkManager(world, (ClientChunkManager) (Object) this);
+        if (GlobalClientChunkManager.Instance == null) {
+            GlobalClientChunkManager.Instance = new GlobalClientChunkManager();
+        }
+
+        System.out.println("Initializing chunk manager for dimension: " + world.getRegistryKey().getValue());
+        GlobalClientChunkManager.Instance.initializeForWorld(world.getRegistryKey().getValue());
     }
 
     @Inject(method = "getChunk", at = @At("RETURN"), cancellable = true)
@@ -60,23 +60,34 @@ public abstract class ClientChunkManagerMixin{
         if (ci.getReturnValue() != (orEmpty ? emptyChunk : null)) {
             return;
         }
-
-        // Try and pull the chunk from our cache.
-        WorldChunk chunk = localChunkManager.getChunk(x, z);
-        if (chunk != null) {
+/*
+        ChunkQueueItem queueItem = ClientChunkQueue.Instance.peek();
+        if (queueItem != null && queueItem.chunkPos == new ChunkPos(x, z).toLong()) {
+            System.out.println("We should be trying to load our item from cache!");
+            WorldChunk chunk = GlobalClientChunkManager.Instance.getLocalManager(queueItem.dimension.getValue()).getChunk(x, z);
             ci.setReturnValue(chunk);
-        }
+            //ClientChunkQueue.Instance.pop();
+        }*/
     }
 
     @Inject(method = "loadChunkFromPacket", at = @At("RETURN"))
     private void mixinUnloadFakeChunk(int x, int z, BiomeArray biomes, PacketByteBuf buf, CompoundTag tag, int verticalStripBitmask, boolean complete, CallbackInfoReturnable<WorldChunk> cir) {
         // Store the latest packet we recieved in our cache...
         WorldChunk chunk = cir.getReturnValue();
-        if (chunk == null) {
-            chunk = new WorldChunk(this.world, new ChunkPos(x, z), biomes);
-            chunk.loadFromPacket(biomes, buf, tag, verticalStripBitmask);
-        }
 
-        localChunkManager.saveChunk(chunk);
+/*
+        ChunkQueueItem queueItem = ClientChunkQueue.Instance.peek();
+        if (queueItem != null && queueItem.chunkPos == new ChunkPos(x, z).toLong()) {
+            System.out.println("We should be trying to save our item into the cache.");
+            WorldChunk newChunk = new WorldChunk(world, new ChunkPos(x,z), biomes);
+            newChunk.loadFromPacket(biomes, buf, tag, verticalStripBitmask);
+            GlobalClientChunkManager.Instance.getLocalManager(queueItem.dimension.getValue()).saveChunk(newChunk);
+
+            //chunk = new WorldChunk(this.world, new ChunkPos(x, z), biomes);
+            //chunk.loadFromPacket(biomes, buf, tag, verticalStripBitmask);
+        }
+*/
+
+        //GlobalClientChunkManager.Instance.getLocalManager(world).saveChunk(chunk);
     }
 }

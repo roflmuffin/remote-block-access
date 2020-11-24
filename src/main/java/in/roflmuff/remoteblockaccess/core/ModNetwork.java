@@ -3,6 +3,10 @@ package in.roflmuff.remoteblockaccess.core;
 import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import in.roflmuff.remoteblockaccess.items.RemoteAccessItem;
 import in.roflmuff.remoteblockaccess.items.RemoteBlockConfiguration;
+import in.roflmuff.remoteblockaccess.network.messages.AbstractNetworkMessage;
+import in.roflmuff.remoteblockaccess.network.messages.BlockEntityDataMessage;
+import in.roflmuff.remoteblockaccess.network.messages.LoadChunkMessage;
+import in.roflmuff.remoteblockaccess.network.messages.OpenGuiMessage;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.network.ClientSidePacketRegistry;
 import net.fabricmc.fabric.api.network.PacketConsumer;
@@ -17,20 +21,24 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.Registry;
+import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.WorldChunk;
 
 import java.io.IOException;
 import java.rmi.Remote;
+import java.util.function.Supplier;
 
 public class ModNetwork {
 
-    public static Identifier MY_PACKET;
+    public static Identifier BLOCK_ENTITY_DATA;
     public static Identifier LOAD_CHUNK_REQUEST;
     public static Identifier OPEN_GUI_REQUEST;
 
-    private static Identifier registerPacket(Identifier identifier, PacketConsumer consumer, boolean recipientIsServer) {
+    private static Identifier registerPacket(String name, PacketConsumer consumer, boolean recipientIsServer) {
+        Identifier identifier = new Identifier(RemoteBlockAccess.MOD_ID, name);
         if (recipientIsServer) {
             ServerSidePacketRegistry.INSTANCE.register(identifier, consumer);
         } else {
@@ -40,57 +48,25 @@ public class ModNetwork {
         return identifier;
     }
 
+    private static Identifier registerPacket(Supplier<AbstractNetworkMessage> messageSupplier, boolean recipientIsServer) {
+        AbstractNetworkMessage message = messageSupplier.get();
+        PacketConsumer consumer = (packetContext, packetByteBuf) -> {
+            AbstractNetworkMessage newMessage = messageSupplier.get();
+            newMessage.accept(packetContext, packetByteBuf);
+        };
+
+        if (recipientIsServer) {
+            ServerSidePacketRegistry.INSTANCE.register(message.getIdentifier(), consumer);
+        } else {
+            ClientSidePacketRegistry.INSTANCE.register(message.getIdentifier(), consumer);
+        }
+
+        return message.getIdentifier();
+    }
+
     public static void register() {
-        MY_PACKET = registerPacket(new Identifier(RemoteBlockAccess.MOD_ID, "my_packet"), (context, packetByteBuf) -> {
-            System.out.println("My Packet Received!");
-            ChunkDataS2CPacket packet = new ChunkDataS2CPacket();
-            try {
-                packet.read(packetByteBuf);
-                int k = 0;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }, false);
-
-        LOAD_CHUNK_REQUEST = registerPacket(new Identifier(RemoteBlockAccess.MOD_ID, "load_chunk_request"), (packetContext, packetByteBuf) -> {
-            ServerPlayerEntity sender = (ServerPlayerEntity)packetContext.getPlayer();
-            BlockPos blockPos = packetByteBuf.readBlockPos();
-            BlockHitResult hitResult = packetByteBuf.readBlockHitResult();
-
-            System.out.println("Received request for Block Pos: " + blockPos + " from : " + sender);
-
-            packetContext.getTaskQueue().execute(() -> {
-                ServerWorld world = (ServerWorld) sender.world;
-                WorldChunk chunk = (WorldChunk) world.getChunk(blockPos);
-
-                LocalChunkManager.Instance.registerChunkForListening(chunk);
-
-                ChunkDataS2CPacket packet = new ChunkDataS2CPacket((WorldChunk) chunk, 65535);
-                sender.networkHandler.sendPacket(packet);
-
-                RemoteBlockConfiguration configuration = RemoteAccessItem.getTarget(sender.getStackInHand(Hand.MAIN_HAND));
-                if (configuration != null) {
-                    RemoteAccessItem.mimicUseAction(configuration, sender);
-                }
-
-                PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
-                buf.writeBlockPos(blockPos);
-                buf.writeBlockHitResult(hitResult);
-                ServerSidePacketRegistry.INSTANCE.sendToPlayer(sender, ModNetwork.OPEN_GUI_REQUEST, buf);
-            });
-        }, true);
-
-        OPEN_GUI_REQUEST = registerPacket(new Identifier(RemoteBlockAccess.MOD_ID, "open_gui_request"), (packetContext, packetByteBuf) -> {
-            PlayerEntity player = packetContext.getPlayer();
-            BlockPos blockPos = packetByteBuf.readBlockPos();
-            BlockHitResult hitResult = packetByteBuf.readBlockHitResult();
-
-            packetContext.getTaskQueue().execute(() -> {
-                RemoteBlockConfiguration configuration = RemoteAccessItem.getTarget(player.getStackInHand(Hand.MAIN_HAND));
-                if (configuration != null) {
-                    RemoteAccessItem.mimicUseAction(configuration, player);
-                }
-            });
-        }, false);
+        LOAD_CHUNK_REQUEST = registerPacket(LoadChunkMessage::new, true);
+        OPEN_GUI_REQUEST = registerPacket(OpenGuiMessage::new, false);
+        BLOCK_ENTITY_DATA = registerPacket(BlockEntityDataMessage::new, false);
     }
 }
