@@ -48,7 +48,6 @@ repositories {
 }
 
 minecraft {
-    accessWidener "src/main/resources/remoteblockaccess.accesswidener"
 }
 
 dependencies {

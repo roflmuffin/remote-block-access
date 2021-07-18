@@ -21,7 +21,6 @@
     "remoteblockaccess.mixins.json",
     "remoteblockaccess.mixins.client.json"
   ],
-  "accessWidener" : "remoteblockaccess.accesswidener",
   "depends": {
     "fabricloader": ">=0.10.8",
     "fabric": "*",
