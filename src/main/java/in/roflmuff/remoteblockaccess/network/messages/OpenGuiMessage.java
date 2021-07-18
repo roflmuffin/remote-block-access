@@ -1,6 +1,5 @@
 package in.roflmuff.remoteblockaccess.network.messages;
 
-import in.roflmuff.remoteblockaccess.core.ClientChunkQueue;
 import in.roflmuff.remoteblockaccess.items.RemoteAccessItem;
 import in.roflmuff.remoteblockaccess.items.RemoteBlockConfiguration;
 import net.fabricmc.fabric.api.network.PacketContext;
@@ -10,7 +9,6 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 
 public class OpenGuiMessage extends AbstractNetworkMessage {
 

@@ -1,7 +1,7 @@
 package in.roflmuff.remoteblockaccess.util;
 
 import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.TranslatableText;
@@ -24,22 +24,22 @@ public class MiscUtil {
         return String.format("DIM:%s", dim.getValue(), pos.getX(), pos.getY(), pos.getZ());
     }
 
-    public static CompoundTag serializeGlobalPos(GlobalPos globalPos) {
-        CompoundTag tag = new CompoundTag();
+    public static NbtCompound serializeGlobalPos(GlobalPos globalPos) {
+        NbtCompound tag = new NbtCompound();
         tag.putLong("pos",globalPos.getPos().asLong());
         tag.putString("dim", globalPos.getDimension().getValue().toString());
         return tag;
     }
 
-    public static GlobalPos deserializeGlobalPos(CompoundTag tag) {
+    public static GlobalPos deserializeGlobalPos(NbtCompound tag) {
         return GlobalPos.create(
-                RegistryKey.of(Registry.DIMENSION, new Identifier(tag.getString("dim"))),
+                RegistryKey.of(Registry.WORLD_KEY, new Identifier(tag.getString("dim"))),
                 BlockPos.fromLong(tag.getLong("pos"))
         );
     }
 
-    public static CompoundTag serializeBlockHitResult(BlockHitResult blockHitResult) {
-        CompoundTag tag = new CompoundTag();
+    public static NbtCompound serializeBlockHitResult(BlockHitResult blockHitResult) {
+        NbtCompound tag = new NbtCompound();
         tag.putLong("blockPos", blockHitResult.getBlockPos().asLong());
         tag.putDouble("hitPosX", blockHitResult.getPos().x);
         tag.putDouble("hitPosY", blockHitResult.getPos().y);
@@ -48,7 +48,7 @@ public class MiscUtil {
         return tag;
     }
 
-    public static BlockHitResult deserializeBlockHitResult(CompoundTag tag) {
+    public static BlockHitResult deserializeBlockHitResult(NbtCompound tag) {
         BlockPos blockPos = BlockPos.fromLong(tag.getLong("blockPos"));
         Vec3d hitPos = new Vec3d(tag.getDouble("hitPosX"), tag.getDouble("hitPosY"), tag.getDouble("hitPosZ"));
         Direction side = Direction.byId(tag.getInt("side"));

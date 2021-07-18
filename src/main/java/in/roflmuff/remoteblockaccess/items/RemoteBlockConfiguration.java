@@ -6,7 +6,8 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.inventory.Inventory;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.TranslatableText;
@@ -40,8 +41,8 @@ public class RemoteBlockConfiguration {
         this(gPos, null);
     }
 
-    public CompoundTag toNBT() {
-        CompoundTag ext = new CompoundTag();
+    public NbtCompound toNBT() {
+        NbtCompound ext = new NbtCompound();
         ext.put("Pos", MiscUtil.serializeGlobalPos(globalPos));
         ext.putString("InvName", translationKey);
         ext.put("BlockHitResult", MiscUtil.serializeBlockHitResult(hitResult));
@@ -49,7 +50,7 @@ public class RemoteBlockConfiguration {
         return ext;
     }
 
-    public static RemoteBlockConfiguration fromNBT(CompoundTag nbt) {
+    public static RemoteBlockConfiguration fromNBT(NbtCompound nbt) {
         GlobalPos gPos = MiscUtil.deserializeGlobalPos(nbt.getCompound("Pos"));
         BlockHitResult hitResult = MiscUtil.deserializeBlockHitResult(nbt.getCompound("BlockHitResult"));
 
@@ -80,6 +81,10 @@ public class RemoteBlockConfiguration {
 
     public ServerWorld getServerWorld() {
         return RemoteBlockAccess.getCurrentServer().getWorld(globalPos.getDimension());
+    }
+
+    public boolean isValidForWorld(World world) {
+        return globalPos.getDimension().getValue() == world.getRegistryKey().getValue();
     }
 
     @Override

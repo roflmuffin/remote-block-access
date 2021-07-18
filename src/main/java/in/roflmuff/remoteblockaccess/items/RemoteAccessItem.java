@@ -3,56 +3,44 @@ package in.roflmuff.remoteblockaccess.items;
 import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import in.roflmuff.remoteblockaccess.config.RemoteBlockAccessConfig;
 import in.roflmuff.remoteblockaccess.core.*;
-import in.roflmuff.remoteblockaccess.network.messages.BlockEntityDataMessage;
 import in.roflmuff.remoteblockaccess.network.messages.OpenGuiMessage;
 import in.roflmuff.remoteblockaccess.screen.RemoteAccessItemScreenHandler;
 import in.roflmuff.remoteblockaccess.util.MiscUtil;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
-import net.fabricmc.fabric.api.screenhandler.v1.ScreenHandlerRegistry;
-import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.item.TooltipContext;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
-import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
 import net.minecraft.util.*;
-import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.dynamic.GlobalPos;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.WorldChunk;
 import org.jetbrains.annotations.Nullable;
 
-import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class RemoteAccessItem extends BaseItem {
 
@@ -123,9 +111,7 @@ public class RemoteAccessItem extends BaseItem {
         }
 
         if (targets.size() > 1 && !world.isClient) {
-            RemoteAccessItemScreenHandler remoteAccessItemScreenHandler = new RemoteAccessItemScreenHandler(0, targets);
-            //remoteAccessItemScreenHandler.
-            //ModScreens.REMOTE_ACCESS_ITEM_SCREEN.create()
+            //RemoteAccessItemScreenHandler remoteAccessItemScreenHandler = new RemoteAccessItemScreenHandler(0, targets);
             user.openHandledScreen(new ExtendedScreenHandlerFactory() {
                 @Override
                 public void writeScreenOpeningData(ServerPlayerEntity serverPlayerEntity, PacketByteBuf packetByteBuf) {
@@ -178,7 +164,7 @@ public class RemoteAccessItem extends BaseItem {
 
             // Handle other vs. same dimensional usage.
             if (targetDimension != world.getRegistryKey().getValue()) {
-                useOtherDimension(user, target);
+                user.sendMessage(new TranslatableText("chatText.misc.wrongDimension").formatted(Formatting.RED), true);
             } else {
                 if (isWithinRange(user, target)) {
                     useSameDimension(world, user, target);
@@ -190,67 +176,10 @@ public class RemoteAccessItem extends BaseItem {
         }
     }
 
-    private void useOtherDimension(PlayerEntity user, RemoteBlockConfiguration target) {
-        BlockPos savedPos = target.globalPos.getPos();
-        System.out.println(String.format("Target %s is in another dimension %s", target.globalPos.getPos(), target.globalPos.getDimension().getValue()));
-
-        if (user.world.isClient) {
-            // This subscribes us to accept a BlockEntity packet at this co-ordinate.
-            // This is used to mock the state of a block entity in another dimension in the client.
-            ClientChunkQueue.Instance.push(target.globalPos.getDimension(), savedPos);
-        } else {
-            ServerWorld serverWorld = target.getServerWorld();
-            WorldChunk chunk = (WorldChunk) serverWorld.getChunk(savedPos);
-            ServerPlayerEntity player =  ((ServerPlayerEntity)user);
-
-            // TODO: Find a better way to force load the requested chunk...
-            serverWorld.setChunkForced(chunk.getPos().x, chunk.getPos().z, true);
-
-            // Here we serialize and send the block entity data for this block position to the client.
-            sendBlockEntityToClient(target, user);
-
-            // Here we prompt the user to open the gui.
-            // This should work in most cases now, as we have `faked` the block entity on the client now.
-            OpenGuiMessage message = new OpenGuiMessage(savedPos, target.hitResult);
-            message.sendToClient(player);
-
-            // Forces subsequent interactions in other mods to use the correct dimension.
-            // Since we are on the serverside this should work (but it can't be good lol)
-            World oldWorld = user.world;
-            user.world = serverWorld;
-            RemoteAccessItem.mimicUseAction(serverWorld, target, user);
-            user.world = oldWorld;
-        }
-    }
-
-    private void sendBlockEntityToClient(RemoteBlockConfiguration target, PlayerEntity user) {
-        ServerWorld serverWorld = target.getServerWorld();
-
-        BlockPos savedPos = target.globalPos.getPos();
-
-        BlockEntity be = serverWorld.getBlockEntity(savedPos);
-        BlockState bs = serverWorld.getBlockState(savedPos);
-        Identifier blockId = Registry.BLOCK.getId(bs.getBlock());
-
-        CompoundTag tag = new CompoundTag();
-        if (be != null) {
-            tag = be.toInitialChunkDataTag();
-            be.toTag(tag);
-        }
-
-        BlockEntityDataMessage blockEntityDataMessage = new BlockEntityDataMessage(tag, blockId);
-        blockEntityDataMessage.sendToClient(user);
-    }
-
     private void useSameDimension(World world, PlayerEntity user, RemoteBlockConfiguration target) {
         BlockPos savedPos = target.globalPos.getPos();
 
-        if (world.isClient) {
-            LocalChunkManager chunkManager = GlobalClientChunkManager.Instance.getLocalManager(world.getRegistryKey().getValue());
-            if (chunkManager != null) {
-                chunkManager.registerChunkForListening(savedPos);
-            }
-        } else {
+        if (!world.isClient) {
             // If were server, send the chunk data and then use the block server side.
             // Also send packet for the client to use the block too.
             ServerWorld serverWorld = RemoteBlockAccess.getCurrentServer().getWorld(target.globalPos.getDimension());
@@ -268,10 +197,10 @@ public class RemoteAccessItem extends BaseItem {
     }
 
     public static void mimicUseAction(World world, RemoteBlockConfiguration target, PlayerEntity user) {
-        if (world.isClient) {
+/*        if (world.isClient) {
             world = new ProxyClientWorld((ClientWorld) world);
-        }
-        System.out.println("Attempting to use block");
+        }*/
+
         BlockPos savedPos = target.globalPos.getPos();
         BlockState state = world.getBlockState(savedPos);
         BlockEntity blockEntity = world.getBlockEntity(savedPos);
@@ -284,7 +213,6 @@ public class RemoteAccessItem extends BaseItem {
             }
         }
 
-
         try {
             if (blockEntity != null) {
                 blockEntity.getCachedState().onUse(world, user, Hand.OFF_HAND, target.hitResult);
@@ -294,8 +222,6 @@ public class RemoteAccessItem extends BaseItem {
         } catch (Exception e) {
             System.out.println("An error occurred trying to open block remotely. " + e.getStackTrace());
         }
-
-        //state.onUse(world, user, Hand.OFF_HAND, target.hitResult);
     }
 
     protected boolean isValidTarget(ItemUsageContext ctx) {
@@ -340,9 +266,9 @@ public class RemoteAccessItem extends BaseItem {
     public static List<RemoteBlockConfiguration> getTargets(ItemStack stack, boolean checkBlockName) {
         List<RemoteBlockConfiguration> result = new ArrayList<RemoteBlockConfiguration>();
 
-        CompoundTag compound = stack.getSubTag(RemoteBlockAccess.MOD_ID);
+        NbtCompound compound = stack.getSubTag(RemoteBlockAccess.MOD_ID);
         if (compound != null && compound.getType(NBT_MULTI_TARGET) == 9 /* List Tag */) {
-            ListTag list = compound.getList(NBT_MULTI_TARGET, 10 /* Compound Tag */);
+            NbtList list = compound.getList(NBT_MULTI_TARGET, 10 /* Compound Tag */);
             for (int i = 0; i < list.size(); i++) {
                 RemoteBlockConfiguration target = RemoteBlockConfiguration.fromNBT(list.getCompound(i));
                 if (checkBlockName) {
@@ -357,9 +283,9 @@ public class RemoteAccessItem extends BaseItem {
     }
 
     private static void setTargets(ItemStack stack, List<RemoteBlockConfiguration> targets) {
-        CompoundTag compound = stack.getOrCreateSubTag(RemoteBlockAccess.MOD_ID);
+        NbtCompound compound = stack.getOrCreateSubTag(RemoteBlockAccess.MOD_ID);
 
-        ListTag list = new ListTag();
+        NbtList list = new NbtList();
         for (RemoteBlockConfiguration target : targets) {
             list.add(target.toNBT());
         }
@@ -393,7 +319,7 @@ public class RemoteAccessItem extends BaseItem {
         if (world.isClient) {
             return;
         }
-        CompoundTag compound = stack.getOrCreateSubTag(RemoteBlockAccess.MOD_ID);
+        NbtCompound compound = stack.getOrCreateSubTag(RemoteBlockAccess.MOD_ID);
         if (hitResult == null || hitResult.getBlockPos() == null) {
             compound.remove(NBT_TARGET);
         } else {

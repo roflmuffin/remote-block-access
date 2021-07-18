@@ -32,10 +32,10 @@ public class RemoteBlockAccess implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(RemoteBlockAccess::setServer);
         AtomicInteger tickCount = new AtomicInteger();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            tickCount.getAndIncrement();
+/*            tickCount.getAndIncrement();
             if (tickCount.get() % 20 == 0) {
                 ClientChunkQueue.Instance.tryPop();
-            }
+            }*/
         });
     }
 

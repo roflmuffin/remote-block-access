@@ -19,7 +19,7 @@ public class SearchWidget extends TextFieldWidget implements IHandleMouseEvents 
         super(fontRenderer, x, y, width, fontRenderer.fontHeight, new LiteralText(""));
 
 
-        this.setHasBorder(false);
+        //this.setHasBorder(false);
         //this.setEnableBackgroundDrawing(false);
         this.setVisible(true);
         this.setEditableColor(0xFFFFFF);

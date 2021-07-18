@@ -15,6 +15,7 @@
   "chatText.misc.targetAdded": "Target added (%d/%d): ",
   "chatText.misc.tooManyTargets": "Too many targets! (max: %d)",
   "chatText.misc.tooFarAway": "Too far away! (Max: %d blocks)",
+  "chatText.misc.wrongDimension": "Target block is in another dimension!",
   "chatText.misc.notCharged": "Not enough charge.",
   "item.remoteblockaccess.remote_core": "Remote Access Core",
   "item.remoteblockaccess.remote_block_accessor": "Remote Block Accessor",

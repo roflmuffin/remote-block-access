@@ -1,7 +1,7 @@
 package in.roflmuff.remoteblockaccess.util;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtCompound;
 
 import java.util.List;
 

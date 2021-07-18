@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '0.5-SNAPSHOT'
+    id 'fabric-loom' version '0.7-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -11,26 +11,39 @@ version = project.mod_version
 group = project.maven_group
 
 repositories {
-    maven {
-        url = "https://www.cursemaven.com"
-    }
-
+    jcenter()
     maven {
         name = "BuildCraft"
         url = "https://mod-buildcraft.com/maven"
-    }
-
-    maven {
-        name "Modmaven"
-        url "https://modmaven.dev/"
         content {
-            includeGroup 'appeng'
+            includeGroup "alexiil.mc.lib"
         }
     }
 
     maven {
-        name "Siphalor's Maven"
-        url "https://maven.siphalor.de"
+        name = "Modmuss50"
+        url = "https://maven.modmuss50.me/"
+    }
+
+    maven {
+        name = "siphalor"
+        url = "https://maven.siphalor.de/"
+    }
+
+    maven {
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+
+    maven {
+        url = "https://jitpack.io"
+        content {
+            includeGroup "com.github.dexman545"
+            includeGroup "com.github.emilyploszaj"
+            includeGroup "io.github.onyxstudios.Cardinal-Components-API"
+        }
     }
 }
 
@@ -54,13 +67,16 @@ dependencies {
         exclude(group: "net.fabricmc.fabric-api")
     }
 
-/*    modRuntime("TechReborn:TechReborn-1.16:${project.techreborn_version}") {
+    modRuntime("TechReborn:TechReborn-1.16:${project.techreborn_version}") {
 		exclude(group: "net.fabricmc")
 		exclude(group: "net.fabricmc.fabric-api")
-	}*/
+	}
 
-    modRuntime("curse.maven:linked_storage:3087341")
-    modRuntime("appeng:appliedenergistics2-fabric:${project.ae2_version}")
+    //modRuntime("curse.maven:linked_storage:3087341")
+    modCompile "alexiil.mc.lib:libblockattributes-all:0.8.5"
+
+    modRuntime "curse.maven:applied-energistics-2:3117933"
+    modRuntime "curse.maven:hwyla-2:3033613"
 
     modImplementation("de.siphalor:nbtcrafting-1.16:2.0.1+mc1.16.4") {
         exclude(group: "net.fabricmc")

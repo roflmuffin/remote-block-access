@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import in.roflmuff.remoteblockaccess.RemoteBlockAccess;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.widget.AbstractButtonWidget;
+import net.minecraft.client.gui.widget.PressableWidget;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
@@ -14,16 +14,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-public abstract class TexturedButton extends AbstractButtonWidget implements ITooltipButton {
+public abstract class TexturedButton extends PressableWidget implements ITooltipButton {
 
     static final Identifier TEXTURE = new Identifier(RemoteBlockAccess.MOD_ID, "textures/gui/widgets.png");
 
     protected final List<String> tooltip1;
-    protected final Consumer<AbstractButtonWidget> pressable;
+    protected final Consumer<PressableWidget> pressable;
     private final int u;
     private final int v;
 
-    public TexturedButton(int x, int y, int width, int height, Consumer<AbstractButtonWidget> pressable) {
+    public TexturedButton(int x, int y, int width, int height, Consumer<PressableWidget> pressable) {
         super(x, y, width, height, new LiteralText(""));
         this.tooltip1 = new ArrayList<>();
         this.pressable = pressable;
@@ -31,7 +31,7 @@ public abstract class TexturedButton extends AbstractButtonWidget implements ITo
         this.v = 0;
     }
 
-    public TexturedButton(int x, int y, int u, int v, int width, int height, Consumer<AbstractButtonWidget> pressable) {
+    public TexturedButton(int x, int y, int u, int v, int width, int height, Consumer<PressableWidget> pressable) {
         super(x, y, width, height, new LiteralText(""));
         this.tooltip1 = new ArrayList<>();
         this.pressable = pressable;

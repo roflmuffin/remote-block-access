@@ -7,7 +7,7 @@ import net.minecraft.inventory.CraftingInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.ShapelessRecipe;
@@ -19,7 +19,7 @@ public class RechargeAccessItemRecipe extends ShapelessRecipe {
 
     public RechargeAccessItemRecipe(ShapelessRecipe original) {
         super(original.getId(), ((ShapelessRecipeMixin) original).getGroupRBA(), original.getOutput(),
-                original.getPreviewInputs());
+                original.getIngredients());
     }
 
     @Override
@@ -54,7 +54,7 @@ public class RechargeAccessItemRecipe extends ShapelessRecipe {
     }
 
     @Override
-    public DefaultedList<ItemStack> getRemainingStacks(CraftingInventory inventory) {
+    public DefaultedList<ItemStack> getRemainder(CraftingInventory inventory) {
         DefaultedList<ItemStack> defaultedList = DefaultedList.ofSize(inventory.size(), ItemStack.EMPTY);
 
         for(int i = 0; i < defaultedList.size(); ++i) {

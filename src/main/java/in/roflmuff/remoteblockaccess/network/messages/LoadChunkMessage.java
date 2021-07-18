@@ -43,7 +43,7 @@ public class LoadChunkMessage extends AbstractNetworkMessage {
     void decode(PacketByteBuf buf) {
         blockPos = buf.readBlockPos();
         hitResult = buf.readBlockHitResult();
-        worldKey = RegistryKey.of(Registry.DIMENSION, new Identifier(buf.readString()));
+        worldKey = RegistryKey.of(Registry.WORLD_KEY, new Identifier(buf.readString()));
     }
 
     @Override
