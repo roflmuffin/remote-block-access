@@ -88,11 +88,11 @@ public class RemoteAccessItemScreen extends BaseScreen<ScreenHandler> implements
         int i = this.x;
         int j = this.y;
         this.drawTexture(matrices, i, j, 0, 0, this.backgroundWidth, this.backgroundHeight);
-        this.renderWaystoneBackground(matrices, mouseX, mouseY, x + 8, y + 35);
-        this.renderWaystoneNames(matrices, x + 8, y + 35);
+        this.renderOptionBackgrounds(matrices, mouseX, mouseY, x + 8, y + 35);
+        this.renderOptionNames(matrices, x + 8, y + 35);
     }
 
-    private void renderWaystoneBackground(MatrixStack matrixStack, int mouseX, int mouseY, int x, int y) {
+    private void renderOptionBackgrounds(MatrixStack matrixStack, int mouseX, int mouseY, int x, int y) {
         for (int i = 0; i < getVisibleRows(); i++) {
             int actualOffset = i + getCurrentOffset();
             if (actualOffset >= getFilteredTargets().size()) continue;
@@ -114,7 +114,7 @@ public class RemoteAccessItemScreen extends BaseScreen<ScreenHandler> implements
         }
     }
 
-    private void renderWaystoneNames(MatrixStack matrixStack, int x, int y) {
+    private void renderOptionNames(MatrixStack matrixStack, int x, int y) {
         for (int i = 0; i < getVisibleRows(); i++) {
             int actualOffset = i + getCurrentOffset();
 

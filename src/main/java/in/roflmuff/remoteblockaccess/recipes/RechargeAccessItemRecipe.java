@@ -45,7 +45,7 @@ public class RechargeAccessItemRecipe extends ShapelessRecipe {
             Item item = stack.getItem();
             if (item instanceof RemoteAccessItem) {
                 output = stack.copy();
-                int newDamage = Math.max(0, stack.getDamage() - (numOfPearls * 8));
+                int newDamage = Math.max(0, stack.getDamage() - (numOfPearls * 16));
                 output.setDamage(newDamage);
             }
         }

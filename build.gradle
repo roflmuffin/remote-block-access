@@ -59,9 +59,14 @@ dependencies {
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
+    modImplementation("de.siphalor:nbtcrafting-1.16:2.0.1+mc1.16.4") {
+        exclude(group: "net.fabricmc")
+        exclude(group: "net.fabricmc.fabric-api")
+    }
+
     // PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
     // You may need to force-disable transitiveness on them.
-    modRuntime("me.shedaniel:RoughlyEnoughItems:${project.rei_version}") {
+    /*modRuntime("me.shedaniel:RoughlyEnoughItems:${project.rei_version}") {
         exclude(group: "net.fabricmc")
         exclude(group: "net.fabricmc.fabric-api")
     }
@@ -75,16 +80,7 @@ dependencies {
     modCompile "alexiil.mc.lib:libblockattributes-all:0.8.5"
 
     modRuntime "curse.maven:applied-energistics-2:3117933"
-    modRuntime "curse.maven:hwyla-2:3033613"
-
-    modImplementation("de.siphalor:nbtcrafting-1.16:2.0.1+mc1.16.4") {
-        exclude(group: "net.fabricmc")
-        exclude(group: "net.fabricmc.fabric-api")
-    }
- /*   modRuntime("curse.maven:libgui:2909428")
-    modRuntime("curse.maven:patchouli:3061633")
-    modRuntime("net.fabricmc.fabric-language-kotlin:1.4.0")
-    modRuntime("curse.maven:industrial_revolution:3114054")*/
+    modRuntime "curse.maven:hwyla-2:3033613"*/
 }
 
 processResources {
